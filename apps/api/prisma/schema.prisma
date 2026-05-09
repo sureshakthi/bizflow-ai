@@ -1,0 +1,440 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// MODELS (SQLite - enums replaced with String)
+// ============================================================
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  role      String   @default("RECEPTIONIST") // OWNER, ADMIN, RECEPTIONIST, DOCTOR, LAB_STAFF
+  isActive  Boolean  @default(true)
+  doctorId  String?  @unique
+  doctor    Doctor?  @relation(fields: [doctorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  queryReplies    QueryReply[]
+  feedbackReplies FeedbackReply[]
+
+  @@map("users")
+}
+
+model Patient {
+  id                 String   @id @default(cuid())
+  name               String
+  phone              String   @unique
+  dob                DateTime
+  gender             String   // MALE, FEMALE
+  language           String   @default("TAMIL") // TAMIL, ENGLISH, HINDI, TELUGU
+  registrationSource String   @default("WHATSAPP") // WHATSAPP, WEB_FORM, PAPER_OCR, ADMIN_MANUAL
+  bloodGroup         String?
+  address            String?
+  emergencyContact   String?
+  aadhaar            String?
+  email              String?
+  insurance          String?
+  referredBy         String?
+  noShowCount        Int      @default(0)
+  isVip              Boolean  @default(false)
+  medicineReminders  Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tokens          Token[]
+  appointments    Appointment[]
+  preConsultForms PreConsultForm[]
+  prescriptions   Prescription[]
+  labReports      LabReport[]
+  bills           Bill[]
+  visits          Visit[]
+  queries         PatientQuery[]
+  feedbacks       Feedback[]
+  reminders       Reminder[]
+
+  @@map("patients")
+}
+
+model Doctor {
+  id             String   @id @default(cuid())
+  name           String
+  specialization String
+  deptCode       String   // GYN, FER, SCN, GEN
+  fees           Float
+  digitalFees    Float?
+  isAvailable    Boolean  @default(true)
+  status         String   @default("AVAILABLE") // AVAILABLE, ON_BREAK, DELAYED
+  delayMinutes   Int      @default(0)
+  roomNumber     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user          User?
+  tokens        Token[]
+  appointments  Appointment[]
+  scheduleSlots ScheduleSlot[]
+  prescriptions Prescription[]
+  labReports    LabReport[]
+  queries       PatientQuery[]
+  visits        Visit[]
+
+  @@map("doctors")
+}
+
+model Token {
+  id            String    @id @default(cuid())
+  tokenNumber   String    @unique
+  deptCode      String    // GYN, FER, SCN, GEN
+  dailyNumber   Int
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  doctorId      String
+  doctor        Doctor    @relation(fields: [doctorId], references: [id])
+  purpose       String    // CONSULTATION, FERTILITY_CHECK, SCAN_TEST, FOLLOW_UP
+  status        String    @default("WAITING") // WAITING, IN_PROGRESS, COMPLETED, SKIPPED, NO_SHOW, CANCELLED
+  priority      Int       @default(0)
+  queuePosition Int?
+  estimatedWait Int?
+  calledAt      DateTime?
+  completedAt   DateTime?
+  date          DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  appointmentId  String?         @unique
+  appointment    Appointment?    @relation(fields: [appointmentId], references: [id])
+  preConsultForm PreConsultForm?
+  visit          Visit?
+
+  @@unique([deptCode, dailyNumber, date])
+  @@map("tokens")
+}
+
+model Appointment {
+  id          String    @id @default(cuid())
+  patientId   String
+  patient     Patient   @relation(fields: [patientId], references: [id])
+  doctorId    String
+  doctor      Doctor    @relation(fields: [doctorId], references: [id])
+  purpose     String    // CONSULTATION, FERTILITY_CHECK, SCAN_TEST, FOLLOW_UP
+  type        String    @default("IN_PERSON") // IN_PERSON, VIDEO_CALL, PHONE_CALL
+  date        DateTime
+  timeSlot    String
+  status      String    @default("CONFIRMED") // CONFIRMED, UNCONFIRMED, CHECKED_IN, COMPLETED, CANCELLED, NO_SHOW, RESCHEDULED
+  fees        Float
+  isFree      Boolean   @default(false)
+  meetingLink String?
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  noShowAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  token Token?
+
+  @@map("appointments")
+}
+
+model ScheduleSlot {
+  id        String   @id @default(cuid())
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  slotType  String   @default("BOTH") // WALK_IN, PRE_BOOKING, BOTH, DIGITAL, BLOCKED
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("schedule_slots")
+}
+
+model DoctorLeave {
+  id           String   @id @default(cuid())
+  doctorId     String
+  date         DateTime
+  reason       String?
+  isClinicWide Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@map("doctor_leaves")
+}
+
+model PreConsultForm {
+  id                String    @id @default(cuid())
+  tokenId           String    @unique
+  token             Token     @relation(fields: [tokenId], references: [id])
+  patientId         String
+  patient           Patient   @relation(fields: [patientId], references: [id])
+  status            String    @default("NOT_SENT") // NOT_SENT, SENT, PARTIAL, COMPLETED, ADMIN_FILLED
+  questionsAnswered Int       @default(0)
+  totalQuestions    Int       @default(7)
+  source            String    @default("PATIENT")
+  sentAt            DateTime?
+  completedAt       DateTime?
+
+  visitType          String? // FIRST_VISIT, FOLLOW_UP, TEST_SCAN_ONLY
+  maritalStatus      String? // SINGLE, MARRIED
+  spouseName         String?
+  lmpDate            DateTime?
+  pregnancyHistory   String?
+  allergies          String?
+  currentMedications String?
+
+  reminders PreConsultReminder[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pre_consult_forms")
+}
+
+model PreConsultReminder {
+  id           String         @id @default(cuid())
+  formId       String
+  form         PreConsultForm @relation(fields: [formId], references: [id])
+  reminderType String
+  sentAt       DateTime       @default(now())
+
+  @@map("pre_consult_reminders")
+}
+
+model Prescription {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  visitId   String?
+  visit     Visit?   @relation(fields: [visitId], references: [id])
+  pdfUrl    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  medicines Medicine[]
+
+  @@map("prescriptions")
+}
+
+model Medicine {
+  id             String       @id @default(cuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  name           String
+  dosage         String
+  timing         String
+  frequency      String
+  duration       Int
+  startDate      DateTime     @default(now())
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  @@map("medicines")
+}
+
+model LabReport {
+  id        String    @id @default(cuid())
+  patientId String
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  doctorId  String
+  doctor    Doctor    @relation(fields: [doctorId], references: [id])
+  testName  String
+  status    String    @default("ORDERED")
+  pdfUrl    String?
+  orderedAt DateTime  @default(now())
+  readyAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  testValues LabTestValue[]
+
+  @@map("lab_reports")
+}
+
+model LabTestValue {
+  id          String    @id @default(cuid())
+  labReportId String
+  labReport   LabReport @relation(fields: [labReportId], references: [id])
+  parameter   String
+  value       String
+  unit        String
+  normalRange String
+  isAbnormal  Boolean   @default(false)
+
+  @@map("lab_test_values")
+}
+
+model Bill {
+  id          String    @id @default(cuid())
+  patientId   String
+  patient     Patient   @relation(fields: [patientId], references: [id])
+  visitId     String?
+  receiptNo   String    @unique
+  totalAmount Float
+  paidAmount  Float     @default(0)
+  status      String    @default("PENDING")
+  pdfUrl      String?
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items BillItem[]
+
+  @@map("bills")
+}
+
+model BillItem {
+  id       String @id @default(cuid())
+  billId   String
+  bill     Bill   @relation(fields: [billId], references: [id])
+  name     String
+  category String
+  amount   Float
+  quantity Int    @default(1)
+
+  @@map("bill_items")
+}
+
+model Visit {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  tokenId   String   @unique
+  token     Token    @relation(fields: [tokenId], references: [id])
+  purpose   String   // CONSULTATION, FERTILITY_CHECK, SCAN_TEST, FOLLOW_UP
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prescriptions Prescription[]
+
+  @@map("visits")
+}
+
+model PatientQuery {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  doctorId  String?
+  doctor    Doctor?  @relation(fields: [doctorId], references: [id])
+  category  String   // MEDICINE_PRESCRIPTION, LAB_REPORT, APPOINTMENT_TIMING, SIDE_EFFECTS, BILLING_PAYMENT, OTHER
+  question  String
+  level     String   @default("BOT") // BOT, STAFF, DOCTOR
+  status    String   @default("NEW") // NEW, IN_PROGRESS, RESOLVED, ESCALATED
+  priority  String   @default("NORMAL") // NORMAL, HIGH, URGENT
+  botAnswer String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  replies QueryReply[]
+
+  @@map("patient_queries")
+}
+
+model QueryReply {
+  id         String       @id @default(cuid())
+  queryId    String
+  query      PatientQuery @relation(fields: [queryId], references: [id])
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  message    String
+  level      String       // BOT, STAFF, DOCTOR
+  wasHelpful Boolean?
+  createdAt  DateTime     @default(now())
+
+  @@map("query_replies")
+}
+
+model Feedback {
+  id             String   @id @default(cuid())
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  rating         Int
+  category       String?
+  comment        String?
+  sharedOnGoogle Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  replies FeedbackReply[]
+
+  @@map("feedbacks")
+}
+
+model FeedbackReply {
+  id         String   @id @default(cuid())
+  feedbackId String
+  feedback   Feedback @relation(fields: [feedbackId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  message    String
+  createdAt  DateTime @default(now())
+
+  @@map("feedback_replies")
+}
+
+model PriceListItem {
+  id        String   @id @default(cuid())
+  category  String
+  name      String
+  price     Float
+  isActive  Boolean  @default(true)
+  isDraft   Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("price_list_items")
+}
+
+model Reminder {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  type        String   // FOLLOW_UP, MEDICINE, LAB_TEST, APPOINTMENT, PREGNANCY_MILESTONE
+  status      String   @default("PENDING") // PENDING, SENT, TAKEN, SKIPPED, UNSUBSCRIBED
+  message     String
+  scheduledAt DateTime
+  sentAt      DateTime?
+  metadata    String?  // JSON string for extra data
+  createdAt   DateTime @default(now())
+
+  @@map("reminders")
+}
+
+model ClinicSettings {
+  id                  String   @id @default(cuid())
+  clinicName          String   @default("Sai Ram Fertility & Maternity Centre")
+  address             String   @default("15/6 Vidyodaya, T-Nagar, Chennai")
+  phone               String   @default("")
+  googleReviewLink    String?
+  defaultSlotDuration Int      @default(15)
+  announcements       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("clinic_settings")
+}
+
+model ConversationState {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  state     String   @default("IDLE")
+  data      String   @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("conversation_states")
+}
