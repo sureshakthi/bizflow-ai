@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef } from 'react';
 
-const API = 'http://localhost:3001/api';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 const FORM_TYPES = [
   { value: 'patient_registration', label: 'Patient Registration Form', icon: '📋' },
