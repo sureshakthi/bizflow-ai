@@ -228,9 +228,20 @@ export class WhatsappService {
       await this.sendText(phone, `Let's start over.\n\nPlease select your language:\n1️⃣ Tamil\n2️⃣ English\n3️⃣ Hindi\n4️⃣ Telugu`);
       return;
     }
-    if (text !== '1' && text.toLowerCase() !== 'confirm') { await this.sendText(phone, 'Please reply *1* to confirm or *2* to edit.'); return; }
+    if (text !== '1' && text.toLowerCase() !== 'confirm') {
+      await this.sendButtons(phone, 'Please confirm your registration:', [
+        { id: '1', title: '✅ Confirm' },
+        { id: '2', title: '✏️ Edit' },
+        { id: 'cancel_flow', title: '❌ Cancel' },
+      ]);
+      return;
+    }
     await this.setState(phone, 'NEW_LOCATION', data);
-    await this.sendText(phone, `📍 *Where are you right now?*\n\n1️⃣ At the Clinic (get token now)\n2️⃣ Pre-Booking (future appointment)`);
+    await this.sendButtons(phone, '📍 *Where are you right now?*', [
+      { id: '1', title: '🏥 At the Clinic' },
+      { id: '2', title: '📅 Pre-Book for Later' },
+      { id: 'cancel_flow', title: '❌ Cancel' },
+    ]);
   }
 
   private async handleNewLocation(phone: string, text: string, data: any) {
@@ -243,7 +254,11 @@ export class WhatsappService {
       await this.setState(phone, 'BOOK_DATE', { ...data, bookDoctorId: data.doctorId, bookDoctorName: data.doctorName, bookFees: data.doctorFees });
       await this.sendText(phone, `📅 Please enter your preferred *appointment date* in DD-MM-YYYY format:\n_Example: 15-06-2026_`);
     } else {
-      await this.sendText(phone, 'Please reply *1* if you are at the clinic or *2* for pre-booking.');
+      await this.sendButtons(phone, '📍 *Where are you right now?*', [
+        { id: '1', title: '🏥 At the Clinic' },
+        { id: '2', title: '📅 Pre-Book for Later' },
+        { id: 'cancel_flow', title: '❌ Cancel' },
+      ]);
     }
   }
 
