@@ -113,12 +113,16 @@ export class WhatsappService {
         `🏥 *Sai Ram Fertility & Maternity Centre*\n` +
         `15/6 Vidyodaya, T-Nagar, Chennai\n\n` +
         `வரவேற்கிறோம்! / Welcome!\n\n` +
-        `Please select your language:\n\n` +
-        `1️⃣ தமிழ் (Tamil)\n` +
-        `2️⃣ English\n` +
-        `3️⃣ हिंदी (Hindi)\n` +
-        `4️⃣ తెలుగు (Telugu)`,
+        `Please select your language:`,
       );
+      await this.sendButtons(phone, 'Choose your language / மொழி தேர்வு', [
+        { id: '1', title: 'தமிழ் (Tamil)' },
+        { id: '2', title: 'English' },
+        { id: '3', title: 'हिंदी (Hindi)' },
+      ]);
+      await this.sendButtons(phone, 'More languages:', [
+        { id: '4', title: 'తెలుగు (Telugu)' },
+      ]);
       await this.setState(phone, 'NEW_LANG', {});
     } else {
       await this.sendExistingMenu(phone, patient.name);
@@ -153,7 +157,10 @@ export class WhatsappService {
     const dob = new Date(`${yyyy}-${mm}-${dd}`);
     if (isNaN(dob.getTime())) { await this.sendText(phone, 'Invalid date. Please try again.'); return; }
     await this.setState(phone, 'NEW_GENDER', { ...data, dob: `${yyyy}-${mm}-${dd}` });
-    await this.sendText(phone, `⚕️ Please select your *gender*:\n\n1️⃣ Male\n2️⃣ Female`);
+    await this.sendButtons(phone, '⚕️ Please select your *gender*:', [
+      { id: '1', title: '👨 Male' },
+      { id: '2', title: '👩 Female' },
+    ]);
   }
 
   private async handleNewGender(phone: string, text: string, data: any) {
@@ -161,11 +168,14 @@ export class WhatsappService {
     const gender = map[text.toLowerCase()];
     if (!gender) { await this.sendText(phone, 'Please reply *1* for Male or *2* for Female.'); return; }
     await this.setState(phone, 'NEW_PURPOSE', { ...data, gender });
-    await this.sendText(
-      phone,
-      `🏥 Please select your *purpose of visit*:\n\n` +
-      `1️⃣ Consultation\n2️⃣ Fertility Check\n3️⃣ Scan / Test\n4️⃣ Follow-up Visit`,
-    );
+    await this.sendButtons(phone, '🏥 Please select your *purpose of visit*:', [
+      { id: '1', title: 'Consultation' },
+      { id: '2', title: 'Fertility Check' },
+      { id: '3', title: 'Scan / Test' },
+    ]);
+    await this.sendButtons(phone, 'More options:', [
+      { id: '4', title: 'Follow-up Visit' },
+    ]);
   }
 
   private async handleNewPurpose(phone: string, text: string, data: any) {
@@ -194,6 +204,10 @@ export class WhatsappService {
       `🏥 Purpose: ${data.purpose.replace(/_/g, ' ')}\n👨‍⚕️ Doctor: Dr. ${doctor.name}\n💰 Fees: ₹${doctor.fees}\n\n` +
       `Reply *1* to Confirm ✅  |  *2* to Edit ✏️`,
     );
+    await this.sendButtons(phone, 'Please confirm your registration:', [
+      { id: '1', title: '✅ Confirm' },
+      { id: '2', title: '✏️ Edit' },
+    ]);
   }
 
   private async handleNewConfirm(phone: string, text: string, data: any) {
@@ -925,6 +939,60 @@ export class WhatsappService {
       );
     } catch (err) {
       this.logger.error(`WA send failed to ${phone}`, (err as any).message);
+    }
+  }
+
+  // Send interactive button message (max 3 buttons)
+  async sendButtons(phone: string, bodyText: string, buttons: { id: string; title: string }[], headerText?: string) {
+    const token = this.config.get('WHATSAPP_ACCESS_TOKEN');
+    const phoneId = this.config.get('WHATSAPP_PHONE_ID');
+    if (!token || !phoneId) {
+      this.logger.warn(`[WA MOCK BUTTONS] → ${phone}: ${bodyText}`);
+      return;
+    }
+    const payload: any = {
+      messaging_product: 'whatsapp',
+      to: phone,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: bodyText },
+        action: { buttons: buttons.map(b => ({ type: 'reply', reply: { id: b.id, title: b.title.substring(0, 20) } })) },
+      },
+    };
+    if (headerText) payload.interactive.header = { type: 'text', text: headerText };
+    try {
+      await axios.post(`https://graph.facebook.com/v18.0/${phoneId}/messages`, payload,
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
+    } catch (err) {
+      this.logger.error(`WA sendButtons failed to ${phone}`, (err as any).message);
+      // Fallback to text
+      await this.sendText(phone, bodyText);
+    }
+  }
+
+  // Send interactive list message (max 10 items)
+  async sendList(phone: string, bodyText: string, buttonLabel: string, sections: { title: string; rows: { id: string; title: string; description?: string }[] }[]) {
+    const token = this.config.get('WHATSAPP_ACCESS_TOKEN');
+    const phoneId = this.config.get('WHATSAPP_PHONE_ID');
+    if (!token || !phoneId) {
+      this.logger.warn(`[WA MOCK LIST] → ${phone}: ${bodyText}`);
+      return;
+    }
+    try {
+      await axios.post(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'interactive',
+        interactive: {
+          type: 'list',
+          body: { text: bodyText },
+          action: { button: buttonLabel, sections },
+        },
+      }, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
+    } catch (err) {
+      this.logger.error(`WA sendList failed to ${phone}`, (err as any).message);
+      await this.sendText(phone, bodyText);
     }
   }
 
