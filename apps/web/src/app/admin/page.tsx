@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 
 interface Token {
@@ -66,9 +67,12 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">👩‍💼 Admin Dashboard</h1>
-          <p className="text-gray-500 text-sm">Sai Ram Fertility & Maternity Centre</p>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-gray-400 hover:text-gray-600 text-xl">🏠</Link>
+          <div>
+            <h1 className="text-xl font-bold">👩‍💼 Admin Dashboard</h1>
+            <p className="text-gray-500 text-sm">Sai Ram Fertility & Maternity Centre</p>
+          </div>
         </div>
         <div className="text-sm text-gray-500">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
       </header>
