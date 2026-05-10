@@ -45,6 +45,14 @@ export class WhatsappService {
     // Global: CONFIRM / CANCEL for reminder replies
     const registrationStates = ['NEW_LANG', 'NEW_NAME', 'NEW_DOB', 'NEW_GENDER', 'NEW_PURPOSE', 'NEW_DOCTOR', 'NEW_CONFIRM', 'NEW_LOCATION'];
     const confirmingStates = ['BOOK_CONFIRM', 'WALKIN_CONFIRM', 'DIGITAL_CONFIRM'];
+
+    // Global cancel_flow button — resets conversation for anyone at any step
+    if (text === 'cancel_flow' || text.toLowerCase() === 'stop' || text.toLowerCase() === 'quit') {
+      await this.setState(phone, 'IDLE', {});
+      await this.sendText(phone, `❌ *Cancelled.*\n\nYou can start again anytime by sending *Hi*.`);
+      return;
+    }
+
     if (text.toUpperCase() === 'CONFIRM' && !confirmingStates.includes(state)) {
       await this.handleQuickConfirm(phone);
       return;
@@ -120,8 +128,9 @@ export class WhatsappService {
         { id: '2', title: 'English' },
         { id: '3', title: 'हिंदी (Hindi)' },
       ]);
-      await this.sendButtons(phone, 'More languages:', [
+      await this.sendButtons(phone, 'More options:', [
         { id: '4', title: 'తెలుగు (Telugu)' },
+        { id: 'cancel_flow', title: '❌ Cancel' },
       ]);
       await this.setState(phone, 'NEW_LANG', {});
     } else {
@@ -160,6 +169,7 @@ export class WhatsappService {
     await this.sendButtons(phone, '⚕️ Please select your *gender*:', [
       { id: '1', title: '👨 Male' },
       { id: '2', title: '👩 Female' },
+      { id: 'cancel_flow', title: '❌ Cancel' },
     ]);
   }
 
@@ -175,6 +185,7 @@ export class WhatsappService {
     ]);
     await this.sendButtons(phone, 'More options:', [
       { id: '4', title: 'Follow-up Visit' },
+      { id: 'cancel_flow', title: '❌ Cancel' },
     ]);
   }
 
@@ -207,6 +218,7 @@ export class WhatsappService {
     await this.sendButtons(phone, 'Please confirm your registration:', [
       { id: '1', title: '✅ Confirm' },
       { id: '2', title: '✏️ Edit' },
+      { id: 'cancel_flow', title: '❌ Cancel' },
     ]);
   }
 
