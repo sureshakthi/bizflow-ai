@@ -249,42 +249,65 @@ export class WhatsappService {
 
   // ── EXISTING PATIENT MENU ────────────────────────────────────────────────
   private async sendExistingMenu(phone: string, name: string) {
-    await this.sendText(
-      phone,
-      `👋 Welcome back${name ? `, *${name}*` : ''}!\n\n` +
-      `How can I help you today?\n\n` +
-      `1️⃣ Book Appointment (In-Person)\n` +
-      `2️⃣ Digital Appointment (Video / Phone)\n` +
-      `3️⃣ Walk-in Token (At clinic now)\n` +
-      `4️⃣ My Records\n` +
-      `5️⃣ Ask a Question\n\n` +
-      `Reply with a number 1–5.`,
-    );
+    await this.sendText(phone, `👋 Welcome back${name ? `, *${name}*` : ''}!\n\nHow can I help you today?`);
+    await this.sendButtons(phone, 'Choose an option:', [
+      { id: '1', title: '📅 Book Appointment' },
+      { id: '2', title: '📱 Digital Consult' },
+      { id: '3', title: '🚶 Walk-in Token' },
+    ]);
+    await this.sendButtons(phone, 'More options:', [
+      { id: '4', title: '📋 My Records' },
+      { id: '5', title: '❓ Ask a Question' },
+      { id: 'cancel_flow', title: '❌ Cancel' },
+    ]);
   }
 
   private async handleMenu(phone: string, text: string, data: any) {
     switch (text.trim()) {
       case '1':
         await this.setState(phone, 'BOOK_PURPOSE', {});
-        await this.sendText(phone, `🏥 Purpose of visit:\n\n1️⃣ Consultation\n2️⃣ Fertility Check\n3️⃣ Scan / Test\n4️⃣ Follow-up Visit`);
+        await this.sendButtons(phone, '🏥 Purpose of *in-person* visit:', [
+          { id: '1', title: 'Consultation' },
+          { id: '2', title: 'Fertility Check' },
+          { id: '3', title: 'Scan / Test' },
+        ]);
+        await this.sendButtons(phone, 'More options:', [
+          { id: '4', title: 'Follow-up Visit' },
+          { id: 'cancel_flow', title: '❌ Cancel' },
+        ]);
         break;
       case '2':
         await this.setState(phone, 'DIGITAL_PURPOSE', {});
-        await this.sendText(phone, `📱 Purpose of consultation:\n\n1️⃣ Consultation\n2️⃣ Fertility Check\n3️⃣ Follow-up / Doubt about Rx`);
+        await this.sendButtons(phone, '📱 Purpose of *digital* consultation:', [
+          { id: '1', title: 'Consultation' },
+          { id: '2', title: 'Fertility Check' },
+          { id: '3', title: 'Follow-up / Doubt' },
+        ]);
+        await this.sendButtons(phone, 'More options:', [
+          { id: 'cancel_flow', title: '❌ Cancel' },
+        ]);
         break;
       case '3':
         await this.setState(phone, 'WALKIN_PURPOSE', {});
-        await this.sendText(phone, `🏥 Purpose of visit:\n\n1️⃣ Consultation\n2️⃣ Fertility Check\n3️⃣ Scan / Test\n4️⃣ Follow-up Visit`);
+        await this.sendButtons(phone, '🚶 Walk-in — Purpose of visit:', [
+          { id: '1', title: 'Consultation' },
+          { id: '2', title: 'Fertility Check' },
+          { id: '3', title: 'Scan / Test' },
+        ]);
+        await this.sendButtons(phone, 'More options:', [
+          { id: '4', title: 'Follow-up Visit' },
+          { id: 'cancel_flow', title: '❌ Cancel' },
+        ]);
         break;
       case '4':
         await this.sendRecords(phone);
         break;
       case '5':
         await this.setState(phone, 'QA_QUESTION', {});
-        await this.sendText(phone, `🤔 Please type your *question* and I'll do my best to help:`);
+        await this.sendText(phone, `🤔 Please type your *question* and I'll do my best to help:\n\n_(Type *stop* to cancel)_`);
         break;
       default:
-        await this.sendText(phone, `Please reply with a number *1–5*.\n\n1️⃣ Book Appointment\n2️⃣ Digital Appointment\n3️⃣ Walk-in Token\n4️⃣ My Records\n5️⃣ Ask a Question`);
+        await this.sendExistingMenu(phone, '');
     }
   }
 
@@ -292,7 +315,9 @@ export class WhatsappService {
   private async handleWalkinPurpose(phone: string, text: string, data: any) {
     const map: Record<string, string> = { '1': 'CONSULTATION', '2': 'FERTILITY_CHECK', '3': 'SCAN_TEST', '4': 'FOLLOW_UP' };
     const purpose = map[text];
-    if (!purpose) { await this.sendText(phone, 'Please reply 1, 2, 3, or 4.'); return; }
+    if (!purpose) { await this.sendButtons(phone, '🚶 Walk-in — Purpose of visit:', [
+      { id: '1', title: 'Consultation' }, { id: '2', title: 'Fertility Check' }, { id: '3', title: 'Scan / Test' },
+    ]); await this.sendButtons(phone, 'More options:', [{ id: '4', title: 'Follow-up Visit' }, { id: 'cancel_flow', title: '❌ Cancel' }]); return; }
     const doctors = await this.prisma.doctor.findMany({ where: { isAvailable: true }, orderBy: { name: 'asc' } });
     let msg = `👨‍⚕️ Select a *doctor*:\n\n`;
     doctors.forEach((d, i) => { msg += `${i + 1}️⃣ Dr. ${d.name} — ${d.specialization} — ₹${d.fees}\n`; });
